@@ -27,4 +27,4 @@ Note: this language was created for personal learning, and also comedic purposes
 
 ```bash
 # commands
-git clone https://github.com/egreenfield323/mandelbrot-viewer.git
+git clone https://github.com/egreenfield323/slawg-lang.git
