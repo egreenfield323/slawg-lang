@@ -1,5 +1,6 @@
 export enum TokenType {
   // literals
+  Null,
   Number,
   Identifier,
 
@@ -15,7 +16,8 @@ export enum TokenType {
 }
 
 const KEYWORDS: Record<string, TokenType> = {
-  "let": TokenType.Let,
+  let: TokenType.Let,
+  null: TokenType.Null,
 };
 
 export interface Token {
@@ -77,15 +79,19 @@ export function tokenize(sourceCode: string): Token[] {
 
         // check for reserved keywords
         const reserved = KEYWORDS[ident];
-        if (reserved == undefined) {
-          tokens.push(token(ident, TokenType.Identifier));
-        } else {
+        if (typeof reserved == "number") {
           tokens.push(token(ident, reserved));
+        } else {
+          tokens.push(token(ident, TokenType.Identifier));
         }
       } else if (isskippable(src[0])) {
         src.shift(); // skip current character
       } else {
-        console.log("Unrecognized character found in source: ", src[0]);
+        console.log(
+          "Unrecognized character found in source: ",
+          src[0].charCodeAt(0),
+          src[0],
+        );
         Deno.exit(1);
       }
     }
