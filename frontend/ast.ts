@@ -29,7 +29,7 @@ export interface Expr extends Stmt {}
 
 export interface AssignmentExpr extends Expr {
   kind: "AssignmentExpr";
-  assinge: Expr;
+  assigne: Expr;
   value: Expr;
 }
 
