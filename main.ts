@@ -1,11 +1,18 @@
 import Parser from "./frontend/parser.ts";
+import Environment from "./runtime/environment.ts";
 import { evaluate } from "./runtime/interpreter.ts";
+import { MK_BOOL, MK_NULL, MK_NUMBER } from "./runtime/values.ts";
 
 repl();
 
 function repl() {
   const parser = new Parser();
-  console.log("Repl v0.1");
+  const env = new Environment();
+  env.declareVar("x", MK_NUMBER(100));
+  env.declareVar("true", MK_BOOL(true));
+  env.declareVar("false", MK_BOOL(false));
+  env.declareVar("null", MK_NULL());
+  console.log("\nSlawg v0.1");
   while (true) {
     const input = prompt("> ");
 
@@ -16,7 +23,7 @@ function repl() {
 
     const program = parser.produceAST(input);
 
-    const result = evaluate(program);
+    const result = evaluate(program, env);
     console.log(result);
   }
 }
