@@ -10,7 +10,7 @@ Experience how it feels to use a very unpractical, funny programming language!
 
 ## Features
 
-Docs will be updated here soon!\n
+Docs will be updated here soon!<br />
 Note: this language was created for personal learning, and also comedic purposes. This should not be taken very seriously.
 
 ## Getting Started
