@@ -15,12 +15,14 @@ Note: this language was created for experience, and also for comedic purposes. T
 
 ## Getting Started
 
+1) Make sure Deno is installed (choco install deno, brew install deno, etc)
 2) Clone this repository
-3) Run the program by running "deno run -A main.ts"
+3) Run "deno init" in terminal (Deno must be installed)
+4) Run the program by running "deno run -A main.ts"
 
 ### Prerequisites
 
-Deno
+[Deno](https://deno.com/)
 
 
 ```bash
