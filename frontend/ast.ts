@@ -1,6 +1,10 @@
 // deno-lint-ignore-file no-empty-interface
 export type NodeType =
+  // statements
   | "Program"
+  | "VarDeclaration"
+  // expressions
+  | "AssignmentExpr"
   | "NumericLiteral"
   | "Identifier"
   | "BinaryExpr";
@@ -14,7 +18,20 @@ export interface Program extends Stmt {
   body: Stmt[];
 }
 
+export interface VarDeclaration extends Stmt {
+  kind: "VarDeclaration";
+  constant: boolean;
+  identifier: string;
+  value?: Expr;
+}
+
 export interface Expr extends Stmt {}
+
+export interface AssignmentExpr extends Expr {
+  kind: "AssignmentExpr";
+  assinge: Expr;
+  value: Expr;
+}
 
 export interface BinaryExpr extends Expr {
   kind: "BinaryExpr";
