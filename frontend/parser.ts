@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+import { ObjectLiteral } from "./ast.ts";
 import {
   AssignmentExpr,
   BinaryExpr,
@@ -6,6 +7,7 @@ import {
   Identifier,
   NumericLiteral,
   Program,
+  Property,
   Stmt,
   VarDeclaration,
 } from "./ast.ts";
@@ -109,8 +111,8 @@ export default class Parser {
     return this.parse_assignment_expr();
   }
 
-  parse_assignment_expr(): Expr {
-    const left = this.parse_additive_expr();
+  private parse_assignment_expr(): Expr {
+    const left = this.parse_object_expr();
 
     if (this.at().type == TokenType.Equals) {
       this.eat(); // advance past equals
@@ -119,6 +121,56 @@ export default class Parser {
     }
 
     return left;
+  }
+
+  private parse_object_expr(): Expr {
+    // { Prop[] }
+    if (this.at().type !== TokenType.OpenBrace) {
+      return this.parse_additive_expr();
+    }
+
+    this.eat(); // advance past open brace.
+    const properties = new Array<Property>();
+
+    while (this.not_eof() && this.at().type !== TokenType.CloseBrace) {
+      const key = this.expect(
+        TokenType.Identifier,
+        "Object literal key expected",
+      ).value;
+
+      // allows shorthand key: pair -> key
+      if (this.at().type == TokenType.Comma) {
+        this.eat(); // advance past comma
+        properties.push(
+          { key, kind: "Property" } as Property,
+        );
+        continue;
+      } // allows shorthand key: pair -> { key }
+      else if (this.at().type == TokenType.CloseBrace) {
+        properties.push(
+          { key, kind: "Property" },
+        );
+        continue;
+      }
+
+      // { key: val }
+      this.expect(
+        TokenType.Colon,
+        "Missing colon following identifier in ObjectExpr",
+      );
+      const value = this.parse_expr();
+
+      properties.push({ kind: "Property", value, key });
+      if (this.at().type !== TokenType.CloseBrace) {
+        this.expect(
+          TokenType.Comma,
+          "Expected comma or closing bracket following property",
+        );
+      }
+    }
+
+    this.expect(TokenType.CloseBrace, "Object literal missing closing brace.");
+    return { kind: "ObjectLiteral", properties } as ObjectLiteral;
   }
 
   private parse_additive_expr(): Expr {
