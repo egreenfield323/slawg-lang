@@ -22,7 +22,7 @@ export function transcribe(code: string) {
     .replace_fr("fr", ";")
     .replace_fr("equivalate to", "=")
     .replace_fr("permit", "let")
-    .replace_fr("no_change", "const")
+    .replace_fr("always", "const")
     .replace_fr("spitbars", "print")
     .replace_fr("si", "if")
     .replace_fr("nothin", "null")

@@ -155,6 +155,7 @@ export function createGlobalEnv() {
   function timeFunction(_args: RuntimeVal[], _env: Environment) {
     return MK_NUMBER(Date.now());
   }
+  
   env.declareVar("time", MK_NATIVE_FN(timeFunction), true);
 
   return env;
