@@ -5,6 +5,8 @@ export type NodeType =
   | "VarDeclaration"
   // expressions
   | "AssignmentExpr"
+  | "MemberExpr"
+  | "CallExpr"
   // literals
   | "Property"
   | "ObjectLiteral"
@@ -41,6 +43,19 @@ export interface BinaryExpr extends Expr {
   left: Expr;
   right: Expr;
   operator: string;
+}
+
+export interface CallExpr extends Expr {
+  kind: "CallExpr";
+  args: Expr[];
+  caller: Expr;
+}
+
+export interface MemberExpr extends Expr {
+  kind: "MemberExpr";
+  object: Expr;
+  property: Expr;
+  computed: boolean;
 }
 
 export interface Identifier extends Expr {
