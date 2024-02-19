@@ -3,6 +3,7 @@ export type NodeType =
   // statements
   | "Program"
   | "VarDeclaration"
+  | "FunctionDeclaration"
   // expressions
   | "AssignmentExpr"
   | "MemberExpr"
