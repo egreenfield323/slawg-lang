@@ -1,9 +1,11 @@
-// deno-lint-ignore-file no-empty-interface
 export type NodeType =
   // statements
   | "Program"
   | "VarDeclaration"
   | "FunctionDeclaration"
+  | "IfStatement"
+  | "ForStatement"
+  | "TryCatchStatement"
   // expressions
   | "AssignmentExpr"
   | "MemberExpr"
@@ -12,6 +14,7 @@ export type NodeType =
   | "Property"
   | "ObjectLiteral"
   | "NumericLiteral"
+  | "StringLiteral"
   | "Identifier"
   | "BinaryExpr";
 
@@ -29,6 +32,27 @@ export interface VarDeclaration extends Stmt {
   constant: boolean;
   identifier: string;
   value?: Expr;
+}
+
+export interface IfStatement extends Stmt {
+  kind: "IfStatement";
+  test: Expr;
+  body: Stmt[];
+  alternate?: Stmt[];
+}
+
+export interface TryCatchStatement extends Stmt {
+  kind: "TryCatchStatement";
+  body: Stmt[];
+  alternate: Stmt[];
+}
+
+export interface ForStatement extends Stmt {
+  kind: "ForStatement";
+  init: VarDeclaration;
+  test: Expr;
+  update: AssignmentExpr;
+  body: Stmt[];
 }
 
 export interface FunctionDeclaration extends Stmt {
@@ -74,6 +98,11 @@ export interface Identifier extends Expr {
 export interface NumericLiteral extends Expr {
   kind: "NumericLiteral";
   value: number;
+}
+
+export interface StringLiteral extends Expr {
+  kind: "StringLiteral";
+  value: string;
 }
 
 export interface Property extends Expr {

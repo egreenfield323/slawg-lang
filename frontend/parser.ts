@@ -1,20 +1,23 @@
-// deno-lint-ignore-file no-explicit-any
-import { ObjectLiteral } from "./ast.ts";
-import { MemberExpr } from "./ast.ts";
-import { CallExpr } from "./ast.ts";
 import {
   AssignmentExpr,
   BinaryExpr,
+  CallExpr,
   Expr,
+  ForStatement,
   FunctionDeclaration,
   Identifier,
+  IfStatement,
+  MemberExpr,
   NumericLiteral,
+  ObjectLiteral,
   Program,
   Property,
   Stmt,
+  StringLiteral,
+  TryCatchStatement,
   VarDeclaration,
-} from "./ast.ts";
-import { Token, tokenize, TokenType } from "./lexer.ts";
+} from "./ast";
+import { Token, tokenize, TokenType } from "./lexer";
 
 export default class Parser {
   private tokens: Token[] = [];
@@ -36,7 +39,7 @@ export default class Parser {
     const prev = this.tokens.shift() as Token;
     if (!prev || prev.type != type) {
       console.error("Parser Error:\n", err, prev, "Expecting: ", type);
-      Deno.exit(1);
+      process.exit(1);
     }
 
     return prev;
@@ -65,9 +68,102 @@ export default class Parser {
         return this.parse_var_declaration();
       case TokenType.Fn:
         return this.parse_fn_declaration();
+      case TokenType.If:
+        return this.parse_if_statement();
+      case TokenType.For:
+        return this.parse_for_statement();
       default:
         return this.parse_expr();
     }
+  }
+
+  parse_block_statement(): Stmt[] {
+    this.expect(
+      TokenType.OpenBrace,
+      'Opening brace ("{") expected while parsing code block.',
+    );
+
+    const body: Stmt[] = [];
+
+    while (this.not_eof() && this.at().type !== TokenType.CloseBrace) {
+      const stmt = this.parse_stmt();
+      body.push(stmt);
+    }
+
+    this.expect(
+      TokenType.CloseBrace,
+      'Closing brace ("}") expected while parsing code block.',
+    );
+
+    return body;
+  }
+
+  parse_for_statement(): Stmt {
+    this.eat(); // eat "for" keyword
+    this.expect(
+      TokenType.OpenParen,
+      'Opening parenthesis ("(") expected following "for" statement.',
+    );
+    const init = this.parse_var_declaration();
+    const test = this.parse_expr();
+
+    this.expect(
+      TokenType.Semicolon,
+      'Semicolon (";") expected following "test expression" in "for" statement.',
+    );
+
+    const update = this.parse_assignment_expr();
+
+    this.expect(
+      TokenType.CloseParen,
+      'Closing parenthesis ("(") expected following "additive expression" in "for" statement.',
+    );
+
+    const body = this.parse_block_statement();
+
+    return {
+      kind: "ForStatement",
+      init,
+      test,
+      update,
+      body,
+    } as ForStatement;
+  }
+
+  parse_if_statement(): Stmt {
+    this.eat(); // eat if keyword
+    this.expect(
+      TokenType.OpenParen,
+      'Opening parenthesis ("(") expected following "if" statement.',
+    );
+
+    const test = this.parse_expr();
+
+    this.expect(
+      TokenType.CloseParen,
+      'Closing parenthesis ("(") expected following "if" statement.',
+    );
+
+    const body = this.parse_block_statement();
+
+    let alternate: Stmt[] = [];
+
+    if (this.at().type == TokenType.Else) {
+      this.eat(); // eat "else"
+
+      if (this.at().type == TokenType.If) {
+        alternate = [this.parse_if_statement()];
+      } else {
+        alternate = this.parse_block_statement();
+      }
+    }
+
+    return {
+      kind: "IfStatement",
+      body: body,
+      test,
+      alternate,
+    } as IfStatement;
   }
 
   parse_fn_declaration(): Stmt {
@@ -88,24 +184,7 @@ export default class Parser {
       params.push((arg as Identifier).symbol);
     }
 
-    this.expect(
-      TokenType.OpenBrace,
-      "Expected function body following declaration",
-    );
-
-    const body: Stmt[] = [];
-
-    while (
-      this.at().type !== TokenType.EOF &&
-      this.at().type !== TokenType.CloseBrace
-    ) {
-      body.push(this.parse_stmt());
-    }
-
-    this.expect(
-      TokenType.CloseBrace,
-      "Closing brace expected inside function declaration",
-    );
+    const body = this.parse_block_statement();
 
     const fn = {
       body,
@@ -151,6 +230,8 @@ export default class Parser {
       constant: isConstant,
     } as VarDeclaration;
 
+    if (this.at().type == TokenType.String) this.eat(); // eat ending quotation
+
     this.expect(
       TokenType.Semicolon,
       "Variable declaration statement must end with a semicolon.",
@@ -173,6 +254,48 @@ export default class Parser {
     }
 
     return left;
+  }
+
+  private parse_and_statement(): Expr {
+    let left = this.parse_additive_expr();
+
+    if (["&&", "|"].includes(this.at().value)) {
+      const operator = this.eat().value;
+      const right = this.parse_additive_expr();
+
+      left = {
+        kind: "BinaryExpr",
+        left,
+        right,
+        operator,
+      } as BinaryExpr;
+    }
+
+    return left;
+  }
+
+  private parse_try_catch_expr(): Expr {
+    if (this.at().value !== "try") {
+      return this.parse_and_statement();
+    }
+
+    this.eat();
+
+    const body = this.parse_block_statement();
+
+    if (this.at().value !== "catch") {
+      throw '"try" statement must be followed by a "catch" statement.';
+    }
+
+    this.eat();
+
+    const alternate = this.parse_block_statement();
+
+    return {
+      kind: "TryCatchStatement",
+      body,
+      alternate,
+    } as TryCatchStatement;
   }
 
   private parse_object_expr(): Expr {
@@ -228,7 +351,7 @@ export default class Parser {
   private parse_additive_expr(): Expr {
     let left = this.parse_multiplicative_expr();
 
-    while (this.at().value == "+" || this.at().value == "-") {
+    while (["+", "-", "==", "!=", "<", ">"].includes(this.at().value)) {
       const operator = this.eat().value;
       const right = this.parse_multiplicative_expr();
       left = {
@@ -245,9 +368,7 @@ export default class Parser {
   private parse_multiplicative_expr(): Expr {
     let left = this.parse_call_member_expr();
 
-    while (
-      this.at().value == "/" || this.at().value == "*" || this.at().value == "%"
-    ) {
+    while (["/", "*", "%"].includes(this.at().value)) {
       const operator = this.eat().value;
       const right = this.parse_call_member_expr();
       left = {
@@ -286,14 +407,17 @@ export default class Parser {
   }
 
   private parse_args(): Expr[] {
-    this.expect(TokenType.OpenParen, "Expected open parenthesis");
+    this.expect(
+      TokenType.OpenParen,
+      'Opening parenthesis ("(") expected while parsing arguments.',
+    );
     const args = this.at().type == TokenType.CloseParen
       ? []
       : this.parse_arguments_list();
 
     this.expect(
       TokenType.CloseParen,
-      "Missing closing parenthesis inside arguments list",
+      'Closing parenthesis (")") expected while parsing arguments.',
     );
     return args;
   }
@@ -324,7 +448,7 @@ export default class Parser {
         // get identifier
         property = this.parse_primary_expr();
 
-        if (property.kind != "Identifier") {
+        if (property.kind !== "Identifier") {
           throw `Cannot use dot operator without right hand side being an identifier`;
         }
       } else { // this allows obj[computedValue] (chaining)
@@ -352,13 +476,11 @@ export default class Parser {
     switch (tk) {
       case TokenType.Identifier:
         return { kind: "Identifier", symbol: this.eat().value } as Identifier;
-
       case TokenType.Number:
         return {
           kind: "NumericLiteral",
           value: parseFloat(this.eat().value),
         } as NumericLiteral;
-
       case TokenType.OpenParen: {
         this.eat(); // eat opening paren
         const value = this.parse_expr();
@@ -368,10 +490,15 @@ export default class Parser {
         ); // closing paren
         return value;
       }
+      case TokenType.String:
+        return {
+          kind: "StringLiteral",
+          value: this.eat().value,
+        } as StringLiteral;
 
       default:
         console.error("Unexpected token found during parsing!", this.at());
-        Deno.exit(1);
+        process.exit(1);
     }
   }
 }

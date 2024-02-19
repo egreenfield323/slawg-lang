@@ -1,32 +1,50 @@
-import Parser from "./frontend/parser.ts";
-import Environment from "./runtime/environment.ts";
-import { createGlobalEnv } from "./runtime/environment.ts";
-import { evaluate } from "./runtime/interpreter.ts";
+import Parser from "./frontend/parser";
+import { createGlobalEnv } from "./runtime/environment";
+import { evaluate } from "./runtime/interpreter";
 
-// repl();
-run("./test.txt");
+import * as readline from "readline/promises";
+import { readFileSync } from "fs";
+import { transcribe } from "./utils/transcriber";
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const file = process.argv[2];
+
+if (file) {
+  run(file);
+} else {
+  repl();
+}
 
 async function run(filename: string) {
   const parser = new Parser();
   const env = createGlobalEnv();
 
-  const input = await Deno.readTextFile(filename);
+  let input = readFileSync(filename, "utf-8");
+
+  if (filename.endsWith(".slawg")) input = await transcribe(input);
+
   const program = parser.produceAST(input);
   const result = evaluate(program, env);
-  // console.log(result);
+
+  return result;
 }
 
-function repl() {
+async function repl() {
   const parser = new Parser();
   const env = createGlobalEnv();
 
-  console.log("\nSlawg v0.1");
+  console.log("v1.0 Slawg");
+
   while (true) {
-    const input = prompt("> ");
+    const input = await rl.question("> ");
 
     // check for no user input or exit keyword.
     if (!input || input.includes("exit")) {
-      Deno.exit(1);
+      process.exit(1);
     }
 
     const program = parser.produceAST(input);

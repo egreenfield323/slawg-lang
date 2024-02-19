@@ -1,41 +1,107 @@
-import { CallExpr } from "../../frontend/ast.ts";
 import {
   AssignmentExpr,
   BinaryExpr,
+  CallExpr,
   Identifier,
+  MemberExpr,
   ObjectLiteral,
-} from "../../frontend/ast.ts";
-import Environment from "../environment.ts";
-import { evaluate } from "../interpreter.ts";
-import { NativeFnValue } from "../values.ts";
+} from "../../frontend/ast";
+import Environment from "../environment";
+import { evaluate } from "../interpreter";
 import {
+  BooleanVal,
   FunctionValue,
+  MK_BOOL,
   MK_NULL,
+  MK_NUMBER,
+  MK_STRING,
+  NativeFnValue,
+  NullVal,
   NumberVal,
   ObjectVal,
   RuntimeVal,
-} from "../values.ts";
+  StringVal,
+  ValueType,
+} from "../values";
 
 export function eval_numeric_binary_expr(
-  lhs: NumberVal,
-  rhs: NumberVal,
+  lhs: RuntimeVal,
+  rhs: RuntimeVal,
   operator: string,
-): NumberVal {
-  let result: number;
-  if (operator == "+") {
-    result = lhs.value + rhs.value;
-  } else if (operator == "-") {
-    result = lhs.value - rhs.value;
-  } else if (operator == "*") {
-    result = lhs.value * rhs.value;
-  } else if (operator == "/") {
-    // TODO: div by zero checks
-    result = lhs.value / rhs.value;
-  } else {
-    result = lhs.value % rhs.value;
-  }
+): RuntimeVal {
+  if (operator === "!=") {
+    return equals(lhs, rhs, false);
+  } else if (operator === "==") {
+    return equals(lhs, rhs, true);
+  } else if (operator === "&&") {
+    return equals(lhs, rhs, true);
+  } else if (operator === "|") {
+    const llhs = lhs as BooleanVal;
+    const rrhs = rhs as BooleanVal;
 
-  return { value: result, type: "number" };
+    return MK_BOOL(llhs.value || rrhs.value);
+  } else if (lhs.type === "number" && rhs.type === "number") {
+    const llhs = lhs as NumberVal;
+    const rrhs = rhs as NumberVal;
+
+    switch (operator) {
+      case "+":
+        return MK_NUMBER(llhs.value + rrhs.value);
+      case "-":
+        return MK_NUMBER(llhs.value - rrhs.value);
+      case "*":
+        return MK_NUMBER(llhs.value * rrhs.value);
+      case "/":
+        return MK_NUMBER(llhs.value / rrhs.value);
+      case "%":
+        return MK_NUMBER(llhs.value % rrhs.value);
+      case "<":
+        return MK_BOOL(llhs.value < rrhs.value);
+      case ">":
+        return MK_BOOL(llhs.value > rrhs.value);
+      default:
+        throw `Unknown operator provided in operation: ${lhs}, ${rhs}.`;
+    }
+  } else {
+    return MK_NULL();
+  }
+}
+
+function equals(lhs: RuntimeVal, rhs: RuntimeVal, strict: boolean): RuntimeVal {
+  const compare = strict
+    ? (a: any, b: any) => a === b
+    : (a: any, b: any) => a !== b;
+
+  switch (lhs.type) {
+    case "boolean":
+      return MK_BOOL(
+        compare((lhs as BooleanVal).value, (rhs as BooleanVal).value),
+      );
+    case "number":
+      return MK_BOOL(
+        compare((lhs as NumberVal).value, (rhs as NumberVal).value),
+      );
+    case "string":
+      return MK_BOOL(
+        compare((lhs as StringVal).value, (rhs as StringVal).value),
+      );
+    case "function":
+      return MK_BOOL(
+        compare((lhs as FunctionValue).body, (rhs as FunctionValue).body),
+      );
+    case "native-fn":
+      return MK_BOOL(
+        compare((lhs as NativeFnValue).call, (rhs as NativeFnValue).call),
+      );
+    case "null":
+      return MK_BOOL(compare((lhs as NullVal).value, (rhs as NullVal).value));
+    case "object":
+      return MK_BOOL(
+        compare((lhs as ObjectVal).properties, (rhs as ObjectVal).properties),
+      );
+    default:
+      throw `RunTime: Unhandled type in equals function: ${lhs}, ${rhs}`;
+  }
 }
 
 export function eval_binary_expr(
@@ -45,16 +111,11 @@ export function eval_binary_expr(
   const lhs = evaluate(binop.left, env);
   const rhs = evaluate(binop.right, env);
 
-  if (lhs.type == "number" && rhs.type == "number") {
-    return eval_numeric_binary_expr(
-      lhs as NumberVal,
-      rhs as NumberVal,
-      binop.operator,
-    );
-  }
-
-  // one or both are null
-  return MK_NULL();
+  return eval_numeric_binary_expr(
+    lhs as NumberVal,
+    rhs as NumberVal,
+    binop.operator,
+  );
 }
 
 export function eval_identifier(
@@ -69,12 +130,34 @@ export function eval_assignment(
   node: AssignmentExpr,
   env: Environment,
 ): RuntimeVal {
+  if (node.assigne.kind === "MemberExpr") return eval_member_expr(env, node);
   if (node.assigne.kind !== "Identifier") {
     throw `Invalid LHS inside assignment expr ${JSON.stringify(node.assigne)}`;
   }
 
   const varname = (node.assigne as Identifier).symbol;
   return env.assignVar(varname, evaluate(node.value, env));
+}
+
+export function eval_member_expr(
+  env: Environment,
+  node?: AssignmentExpr,
+  expr?: MemberExpr,
+): RuntimeVal {
+  if (expr) {
+    const variable = env.lookupOrMutObject(expr);
+
+    return variable;
+  } else if (node) {
+    const variable = env.lookupOrMutObject(
+      node.assigne as MemberExpr,
+      evaluate(node.value, env),
+    );
+
+    return variable;
+  } else {
+    throw `Evaluating a member expression is not possible without a member or assignment expression.`;
+  }
 }
 
 export function eval_object_expr(

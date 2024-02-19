@@ -1,12 +1,13 @@
-import Environment from "./environment.ts";
-import { Stmt } from "../frontend/ast.ts";
+import Environment from "./environment";
+import { Stmt } from "../frontend/ast";
 export type ValueType =
   | "null"
   | "number"
   | "boolean"
   | "object"
   | "native-fn"
-  | "function";
+  | "function"
+  | "string";
 
 export interface RuntimeVal {
   type: ValueType;
@@ -41,6 +42,19 @@ export function MK_NUMBER(n = 0) {
 export interface ObjectVal extends RuntimeVal {
   type: "object";
   properties: Map<string, RuntimeVal>;
+}
+
+export function MK_OBJECT(obj: Map<string, RuntimeVal>) {
+  return { type: "object", properties: obj } as ObjectVal;
+}
+
+export interface StringVal extends RuntimeVal {
+  type: "string";
+  value: string;
+}
+
+export function MK_STRING(val: string) {
+  return { type: "string", value: val } as StringVal;
 }
 
 export type FunctionCall = (args: RuntimeVal[], env: Environment) => RuntimeVal;
